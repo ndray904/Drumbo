@@ -1,0 +1,180 @@
+.midi-map {
+  --map-label-width: 180px;
+  --map-gap: 12px;
+  --map-row-height: 26px;
+  margin-top: 24px;
+  padding: 16px 20px 12px;
+  min-width: 0;
+}
+.midi-map-heading,
+.midi-map-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.midi-map-heading {
+  justify-content: space-between;
+  gap: 12px;
+}
+.midi-map-heading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.midi-map-controls button {
+  font-size: 11px;
+  padding: 7px 12px;
+}
+.midi-map-toggle {
+  background: #c6ee91;
+  color: #1c2515;
+  min-width: 60px;
+}
+.midi-map-ruler,
+.midi-map-row {
+  display: grid;
+  grid-template-columns: var(--map-label-width) minmax(0, 1fr);
+  gap: var(--map-gap);
+}
+.midi-map-ruler {
+  margin-top: 10px;
+  padding: 8px 0 6px;
+  border-top: 1px solid #343e2d;
+  color: #8e9e81;
+  font-size: 9px;
+}
+.midi-map-times {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+.midi-map-grid {
+  position: relative;
+}
+.midi-map-row {
+  height: var(--map-row-height);
+  border-bottom: 1px solid #30392a;
+}
+.midi-map-row:first-child {
+  border-top: 1px solid #30392a;
+}
+.midi-map-note {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #dde7d5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.midi-map-row.is-unused .midi-map-note,
+.midi-map-row[data-audible="false"] .midi-map-note {
+  color: #929f86;
+}
+.midi-map-note:hover {
+  color: #d3ffa0;
+  background: #293523;
+}
+.midi-map-track {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  cursor: crosshair;
+  background-color: #171c15;
+  background-image: linear-gradient(to right, #35402e 1px, transparent 1px);
+  background-size: 25% 100%;
+}
+.midi-map-hit {
+  position: absolute;
+  width: 3px;
+  height: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: #badd91;
+  pointer-events: none;
+}
+.midi-map-row.is-active .midi-map-track {
+  background-color: #303c26;
+}
+.midi-map-row.is-sounding .midi-map-note {
+  color: #d3ffa0;
+  background: #293523;
+}
+.midi-map-playhead-layer {
+  position: absolute;
+  inset: 0 0 0 calc(var(--map-label-width) + var(--map-gap));
+  pointer-events: none;
+}
+.midi-map-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: #d2f5a6;
+  box-shadow: 0 0 7px #c6ee9155;
+}
+.midi-map-playhead::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 7px;
+  height: 7px;
+  background: #d2f5a6;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.midi-map-position {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 9px;
+  font-size: 10px;
+  color: #a6b29b;
+}
+#map-seek {
+  flex: 1;
+  width: 100%;
+}
+.midi-map-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .midi-map {
+    --map-label-width: 128px;
+    --map-gap: 8px;
+    padding: 14px 12px 10px;
+  }
+  .midi-map-heading h2 {
+    font-size: 18px;
+  }
+  .midi-map-controls button {
+    padding-inline: 9px;
+  }
+  .midi-map-note {
+    min-height: 0;
+    font-size: 10px;
+  }
+  .midi-map-times span:nth-child(2),
+  .midi-map-times span:nth-child(4) {
+    display: none;
+  }
+}
+@media (max-width: 350px) {
+  .midi-map {
+    --map-label-width: 112px;
+    padding-inline: 10px;
+  }
+}
