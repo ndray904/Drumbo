@@ -1,5 +1,5 @@
 import type { Hit, Kit, Song } from "./model";
-import { activeMapNotes, buildNoteMap, type NoteMapRow } from "./note-map";
+import { activeMapNotes, buildKitNoteMap, type NoteMapRow } from "./note-map";
 import "./midi-map.css";
 
 interface MapOptions {
@@ -45,9 +45,6 @@ export class MidiMap {
   private previousTime?: number;
   private previousPlaying = false;
   private wrapped = false;
-  private file: HTMLElement;
-  private summary: HTMLElement;
-  private mode: HTMLElement;
   private playButton: HTMLButtonElement;
   private grid: HTMLElement;
   private ruler: HTMLElement;
@@ -59,17 +56,10 @@ export class MidiMap {
     private root: HTMLElement,
     private options: MapOptions,
   ) {
-    root.innerHTML = `<div class="midi-map-heading"><div><span class="eyebrow">SEE YOUR GROOVE</span><h2 id="midi-map-title">MIDI note map</h2></div><div class="midi-map-controls"><span class="midi-map-mode">Ready</span><button class="midi-map-toggle" type="button" aria-label="Play MIDI map">Play</button><button class="midi-map-stop" type="button" aria-label="Stop MIDI map">Stop</button></div></div>
-      <p class="midi-map-file"></p>
-      <div class="midi-map-meta"><p id="midi-map-summary"></p><div class="midi-map-legend" aria-label="Mapping legend"><span class="map-key-pad">Kit pad</span><span class="map-key-fallback">Generated fallback</span><span class="map-key-unsupported">Not played</span></div></div>
-      <p class="midi-map-help">Tap a note to audition its sound. Follow the playhead or click a lane to seek.</p>
-      <div class="midi-map-ruler"><span>NOTE / SOUND</span><div class="midi-map-times"></div></div>
-      <div class="midi-map-scroll" tabindex="0" aria-label="MIDI notes and playback lanes"><div class="midi-map-grid"></div></div>
-      <div class="midi-map-position"><label for="map-seek">Map position</label><input id="map-seek" type="range" min="0" max="1" step="0.001" value="0"><span class="midi-map-time">0:00.0 / 0:00.0</span></div>
-      <p class="midi-map-footnote">Lane flashes show MIDI activity. Audio follows your kit’s mute, solo and volume settings.</p>`;
-    this.file = root.querySelector(".midi-map-file")!;
-    this.summary = root.querySelector("#midi-map-summary")!;
-    this.mode = root.querySelector(".midi-map-mode")!;
+    root.innerHTML = `<div class="midi-map-heading"><h2 id="midi-map-title">MIDI note map</h2><div class="midi-map-controls"><button class="midi-map-toggle" type="button" aria-label="Play MIDI map">Play</button><button class="midi-map-stop" type="button" aria-label="Stop MIDI map">Stop</button></div></div>
+      <div class="midi-map-ruler"><span>Sound</span><div class="midi-map-times"></div></div>
+      <div class="midi-map-grid" aria-label="16 kit sounds and playback lanes"></div>
+      <div class="midi-map-position"><input id="map-seek" aria-label="MIDI map position" type="range" min="0" max="1" step="0.001" value="0"><span class="midi-map-time">0:00.0 / 0:00.0</span></div>`;
     this.playButton = root.querySelector(".midi-map-toggle")!;
     this.playButton.onclick = () => this.options.onTogglePlayback();
     root.querySelector<HTMLButtonElement>(".midi-map-stop")!.onclick = () =>
@@ -97,39 +87,20 @@ export class MidiMap {
   render(song: Song, kit: Kit, channel: number) {
     this.song = song;
     this.duration = Math.max(0.001, song.duration);
-    this.rows = buildNoteMap(song, kit, channel);
+    this.rows = buildKitNoteMap(song, kit, channel);
     this.previousTime = undefined;
     this.previousPlaying = false;
     this.wrapped = false;
     this.rowNodes.clear();
     this.grid.replaceChildren();
-    this.file.textContent = song.name;
-    const hitCount = this.rows.reduce((sum, row) => sum + row.hits.length, 0);
-    const channelLabel =
-      channel === -1 ? "All channels" : `Channel ${channel + 1}`;
-    this.summary.textContent = `${this.rows.length} ${this.rows.length === 1 ? "note" : "notes"} · ${hitCount} ${hitCount === 1 ? "hit" : "hits"} · ${channelLabel}`;
+    this.root.title = song.name;
     this.seek.max = String(this.duration);
-    this.seek.disabled = this.rows.length === 0;
+    this.seek.disabled = song.hits.length === 0;
     this.ruler.replaceChildren();
     for (let index = 0; index <= 4; index++)
       this.ruler.append(
         element("span", "", timeLabel((this.duration * index) / 4)),
       );
-
-    if (!this.rows.length) {
-      const empty = element("div", "midi-map-empty");
-      empty.append(
-        element("strong", "", "No notes in this channel"),
-        element(
-          "p",
-          "",
-          "Choose another channel, load a MIDI file, or play the demo groove.",
-        ),
-      );
-      this.grid.append(empty);
-      this.frame(0, false, 1, false);
-      return;
-    }
 
     const markerLimit = Math.max(
       40,
@@ -139,35 +110,17 @@ export class MidiMap {
       const node = element("div", `midi-map-row map-source-${row.source}`);
       node.dataset.note = String(row.note);
       node.dataset.audible = String(row.audible);
-      const label = element("div", "midi-map-label");
-      const audition = element("button", "midi-map-note");
+      node.classList.toggle("is-unused", row.hits.length === 0);
+      node.title = `${row.destination} · ${row.state}${row.hits.length ? "" : " · Not used in selected channel"}`;
+      const audition = element(
+        "button",
+        "midi-map-note midi-map-name",
+        row.name,
+      );
       audition.type = "button";
       audition.setAttribute("aria-label", `Audition MIDI note ${row.note}`);
-      audition.disabled = row.source === "unsupported";
-      audition.title =
-        row.source === "unsupported"
-          ? row.destination
-          : `Audition ${row.name}; ${row.state}`;
-      audition.append(
-        element("span", "midi-map-number", `${row.note} / ${row.pitch}`),
-        element("strong", "midi-map-name", row.name),
-      );
+      audition.title = node.title;
       audition.onclick = () => this.options.onAudition(row.note);
-      const destination = element(
-        "span",
-        "midi-map-destination",
-        row.destination,
-      );
-      const detail = element("span", "midi-map-detail");
-      detail.append(
-        element(
-          "span",
-          "midi-map-hit-count",
-          `${row.hits.length} ${row.hits.length === 1 ? "hit" : "hits"}`,
-        ),
-        element("span", "midi-map-state", row.state),
-      );
-      label.append(audition, destination, detail);
       const track = element("div", "midi-map-track");
       track.setAttribute("aria-hidden", "true");
       track.title =
@@ -189,7 +142,7 @@ export class MidiMap {
         marker.title = `${timeLabel(hit.time)} · velocity ${Math.round(hit.velocity * 127)} · channel ${hit.channel + 1}`;
         track.append(marker);
       }
-      node.append(label, track);
+      node.append(audition, track);
       this.grid.append(node);
       this.rowNodes.set(row.note, node);
     }
@@ -241,8 +194,6 @@ export class MidiMap {
       this.playButton.textContent = playLabel;
       this.playButton.setAttribute("aria-label", `${playLabel} MIDI map`);
     }
-    const mode = playing ? "Playing" : position > 0 ? "Paused" : "Ready";
-    if (this.mode.textContent !== mode) this.mode.textContent = mode;
     this.root.classList.toggle("is-playing", playing);
     this.previousTime = position;
     this.previousPlaying = playing;

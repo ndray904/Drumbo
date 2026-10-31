@@ -28,12 +28,7 @@ const PITCHES = [
   "B",
 ];
 
-/** Describe only notes used by the selected channel, using the current kit. */
-export function buildNoteMap(
-  song: Song,
-  kit: Kit,
-  channel: number,
-): NoteMapRow[] {
+function groupHits(song: Song, channel: number): Map<number, Hit[]> {
   const notes = new Map<number, Hit[]>();
   for (const hit of song.hits) {
     if (channel !== -1 && hit.channel !== channel) continue;
@@ -42,57 +37,85 @@ export function buildNoteMap(
     else notes.set(hit.note, [hit]);
   }
 
-  return [...notes.entries()]
+  for (const hits of notes.values()) hits.sort((a, b) => a.time - b.time);
+  return notes;
+}
+
+function describeNote(
+  note: number,
+  hits: Hit[],
+  kit: Kit,
+  slotIndex = kit.slots.findIndex((slot) => slot.note === note),
+): NoteMapRow {
+  const supported = note >= 35 && note <= 81;
+  if (!supported) slotIndex = -1;
+  const slot = kit.slots[slotIndex];
+  const source: NoteMapRow["source"] = !supported
+    ? "unsupported"
+    : !slot
+      ? "fallback"
+      : slot.audio
+        ? "sample"
+        : "starter";
+  const destination = !supported
+    ? "Not played · Outside GM range"
+    : !slot
+      ? "No kit pad · Generated fallback"
+      : `Pad ${String(slotIndex + 1).padStart(2, "0")} · ${
+          source === "sample"
+            ? slot.filename || "Custom sample"
+            : "Generated starter"
+        }`;
+  const canPlay =
+    supported && audible(slot, kit.slots) && (slot?.volume ?? 1) > 0;
+  const state = !supported
+    ? "Outside GM range"
+    : slot?.mute
+      ? "Muted"
+      : slot?.volume === 0
+        ? "Volume 0"
+        : !canPlay
+          ? "Silent · Another pad is solo"
+          : "Audible";
+  return {
+    note,
+    name: gmName(note),
+    pitch: `${PITCHES[note % 12]}${Math.floor(note / 12) - 1}`,
+    hits,
+    channels: [...new Set(hits.map((hit) => hit.channel))].sort(
+      (a, b) => a - b,
+    ),
+    slotIndex,
+    source,
+    destination,
+    audible: canPlay,
+    state,
+  };
+}
+
+/** Describe only notes used by the selected channel, using the current kit. */
+export function buildNoteMap(
+  song: Song,
+  kit: Kit,
+  channel: number,
+): NoteMapRow[] {
+  return [...groupHits(song, channel).entries()]
     .sort(([a], [b]) => b - a)
-    .map(([note, hits]) => {
-      hits.sort((a, b) => a.time - b.time);
-      const supported = note >= 35 && note <= 81;
-      const slotIndex = supported
-        ? kit.slots.findIndex((s) => s.note === note)
-        : -1;
-      const slot = kit.slots[slotIndex];
-      const source: NoteMapRow["source"] = !supported
-        ? "unsupported"
-        : !slot
-          ? "fallback"
-          : slot.audio
-            ? "sample"
-            : "starter";
-      const destination = !supported
-        ? "Not played · Outside GM range"
-        : !slot
-          ? "No kit pad · Generated fallback"
-          : `Pad ${String(slotIndex + 1).padStart(2, "0")} · ${
-              source === "sample"
-                ? slot.filename || "Custom sample"
-                : "Generated starter"
-            }`;
-      const canPlay =
-        supported && audible(slot, kit.slots) && (slot?.volume ?? 1) > 0;
-      const state = !supported
-        ? "Outside GM range"
-        : slot?.mute
-          ? "Muted"
-          : slot?.volume === 0
-            ? "Volume 0"
-            : !canPlay
-              ? "Silent · Another pad is solo"
-              : "Audible";
-      return {
-        note,
-        name: gmName(note),
-        pitch: `${PITCHES[note % 12]}${Math.floor(note / 12) - 1}`,
-        hits,
-        channels: [...new Set(hits.map((h) => h.channel))].sort(
-          (a, b) => a - b,
-        ),
-        slotIndex,
-        source,
-        destination,
-        audible: canPlay,
-        state,
-      };
-    });
+    .map(([note, hits]) => describeNote(note, hits, kit));
+}
+
+/** Keep the 16 kit lanes in pad order, even when a lane has no MIDI events. */
+export function buildKitNoteMap(
+  song: Song,
+  kit: Kit,
+  channel: number,
+): NoteMapRow[] {
+  const notes = groupHits(song, channel);
+  return kit.slots
+    .slice(0, 16)
+    .map((slot, slotIndex) =>
+      describeNote(slot.note, notes.get(slot.note) ?? [], kit, slotIndex),
+    );
 }
 
 /** Last hit at or before the playhead, without scanning an entire lane per frame. */

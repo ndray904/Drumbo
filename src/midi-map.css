@@ -1,86 +1,33 @@
 .midi-map {
-  --map-label-width: 265px;
-  --map-gap: 16px;
+  --map-label-width: 180px;
+  --map-gap: 12px;
+  --map-row-height: 26px;
   margin-top: 24px;
-  padding: 25px 28px 18px;
+  padding: 16px 20px 12px;
   min-width: 0;
 }
 .midi-map-heading,
-.midi-map-meta {
+.midi-map-controls {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+.midi-map-heading {
   justify-content: space-between;
-  gap: 15px;
+  gap: 12px;
 }
 .midi-map-heading h2 {
-  margin: 8px 0 0;
-  font-size: 27px;
-}
-.midi-map-mode {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid #414b37;
-  color: #a7b29d;
-  border-radius: 20px;
-  padding: 7px 11px;
-  font-size: 11px;
-}
-.midi-map-mode::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: currentColor;
-  border-radius: 50%;
-}
-.is-playing .midi-map-mode {
-  color: #c6ee91;
-  background: #2b3723;
-}
-.midi-map-file {
-  margin: 14px 0 6px;
-  font-size: 14px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-#midi-map-summary {
   margin: 0;
-  color: #a6b29b;
+  font-size: 20px;
+}
+.midi-map-controls button {
   font-size: 11px;
+  padding: 7px 12px;
 }
-.midi-map-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  color: #a6b29b;
-  font-size: 10px;
-}
-.midi-map-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.midi-map-legend span::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
+.midi-map-toggle {
   background: #c6ee91;
-}
-.midi-map-legend .map-key-fallback::before {
-  background: #e9bd73;
-}
-.midi-map-legend .map-key-unsupported::before {
-  background: #87927f;
-}
-.midi-map-help,
-.midi-map-footnote {
-  font-size: 11px;
-  color: #8f9b84;
-  line-height: 1.6;
-}
-.midi-map-help {
-  margin: 15px 0;
+  color: #1c2515;
+  min-width: 60px;
 }
 .midi-map-ruler,
 .midi-map-row {
@@ -89,95 +36,54 @@
   gap: var(--map-gap);
 }
 .midi-map-ruler {
-  padding: 10px 0;
+  margin-top: 10px;
+  padding: 8px 0 6px;
   border-top: 1px solid #343e2d;
   color: #8e9e81;
   font-size: 9px;
-  letter-spacing: 1px;
 }
 .midi-map-times {
   display: flex;
   justify-content: space-between;
-  gap: 2px;
-  letter-spacing: 0;
   font-variant-numeric: tabular-nums;
-}
-.midi-map-scroll {
-  max-height: 420px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: #52633f #20261c;
-  scrollbar-width: thin;
-}
-.midi-map-scroll:focus-visible {
-  outline: 2px solid #c6ee91;
-  outline-offset: 4px;
 }
 .midi-map-grid {
   position: relative;
 }
 .midi-map-row {
-  min-height: 101px;
+  height: var(--map-row-height);
+  border-bottom: 1px solid #30392a;
+}
+.midi-map-row:first-child {
   border-top: 1px solid #30392a;
 }
-.midi-map-label {
-  min-width: 0;
-  padding: 9px 0 10px;
-  position: relative;
-  z-index: 2;
-}
 .midi-map-note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 9px;
-  background: none;
-  border: 0;
-  padding: 4px 0;
-  width: 100%;
-  text-align: left;
-  border-radius: 3px;
-}
-.midi-map-number {
-  color: #bfdba6;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-.midi-map-name {
-  color: #e1e9d9;
-  font-size: 12px;
-  font-weight: 550;
-  overflow-wrap: anywhere;
-}
-.midi-map-note:hover .midi-map-name {
-  color: #c6ee91;
-}
-.midi-map-note:disabled {
-  cursor: default;
-}
-.midi-map-note:disabled .midi-map-name {
-  color: #9ba592;
-}
-.midi-map-destination {
   display: block;
-  color: #a8b79b;
-  font-size: 10px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #dde7d5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.midi-map-detail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  margin-top: 5px;
-  color: #7f9071;
-  font-size: 9px;
+.midi-map-row.is-unused .midi-map-note,
+.midi-map-row[data-audible="false"] .midi-map-note {
+  color: #929f86;
 }
-.midi-map-state {
-  color: #a2b98c;
-}
-.midi-map-row[data-audible="false"] .midi-map-state {
-  color: #d6b387;
+.midi-map-note:hover {
+  color: #d3ffa0;
+  background: #293523;
 }
 .midi-map-track {
   position: relative;
@@ -187,51 +93,28 @@
   background-color: #171c15;
   background-image: linear-gradient(to right, #35402e 1px, transparent 1px);
   background-size: 25% 100%;
-  border-bottom: 1px solid #30392a;
-  transition: background-color 0.09s;
 }
 .midi-map-hit {
   position: absolute;
   width: 3px;
-  height: 36%;
-  min-height: 12px;
-  top: 32%;
+  height: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   border-radius: 2px;
   background: #badd91;
   pointer-events: none;
 }
-.map-source-fallback .midi-map-hit {
-  background: #e9bd73;
-}
-.map-source-unsupported .midi-map-hit {
-  background: #87927f;
-}
-.map-source-fallback .midi-map-destination {
-  color: #d7b77f;
-}
-.map-source-unsupported .midi-map-destination {
-  color: #9ba592;
-}
 .midi-map-row.is-active .midi-map-track {
   background-color: #303c26;
 }
-.midi-map-row.is-sounding .midi-map-name,
-.midi-map-row.is-sounding .midi-map-number {
+.midi-map-row.is-sounding .midi-map-note {
   color: #d3ffa0;
-}
-.midi-map-row.is-sounding .midi-map-note::after {
-  content: "●";
-  color: #c6ee91;
-  font-size: 8px;
+  background: #293523;
 }
 .midi-map-playhead-layer {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--map-label-width) + var(--map-gap));
-  right: 0;
+  inset: 0 0 0 calc(var(--map-label-width) + var(--map-gap));
   pointer-events: none;
-  z-index: 1;
 }
 .midi-map-playhead {
   position: absolute;
@@ -256,13 +139,9 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid #343e2d;
+  padding-top: 9px;
   font-size: 10px;
   color: #a6b29b;
-}
-.midi-map-position label {
-  white-space: nowrap;
 }
 #map-seek {
   flex: 1;
@@ -272,102 +151,30 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.midi-map-footnote {
-  margin: 10px 0 0;
-  font-size: 10px;
-}
-.midi-map-empty {
-  padding: 30px 15px;
-  color: #a7b799;
-  text-align: center;
-  font-size: 12px;
-}
-.midi-map-empty p {
-  color: #819374;
-  font-size: 11px;
-  line-height: 1.7;
-}
 @media (max-width: 760px) {
   .midi-map {
-    --map-label-width: 137px;
-    --map-gap: 10px;
-    padding: 20px 16px 15px;
+    --map-label-width: 128px;
+    --map-gap: 8px;
+    padding: 14px 12px 10px;
   }
   .midi-map-heading h2 {
-    font-size: 23px;
+    font-size: 18px;
   }
-  .midi-map-meta {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 9px;
-  }
-  .midi-map-legend {
-    gap: 7px 11px;
-    font-size: 9px;
+  .midi-map-controls button {
+    padding-inline: 9px;
   }
   .midi-map-note {
-    flex-direction: column;
-    gap: 3px;
-    min-height: 44px;
-  }
-  .midi-map-name {
-    font-size: 11px;
-  }
-  .midi-map-row {
-    min-height: 118px;
-  }
-  .midi-map-ruler {
-    font-size: 8px;
-    letter-spacing: 0;
+    min-height: 0;
+    font-size: 10px;
   }
   .midi-map-times span:nth-child(2),
   .midi-map-times span:nth-child(4) {
     display: none;
   }
-  .midi-map-position {
-    flex-wrap: wrap;
-    gap: 3px 10px;
-  }
-  .midi-map-position label {
-    width: 100%;
-  }
-  .midi-map-position #map-seek {
-    width: 80px;
-  }
 }
 @media (max-width: 350px) {
   .midi-map {
     --map-label-width: 112px;
-    padding-inline: 12px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .midi-map-track {
-    transition: none;
-  }
-}
-
-.midi-map-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-}
-.midi-map-controls button {
-  font-size: 11px;
-  padding: 8px 12px;
-}
-.midi-map-toggle {
-  background: #c6ee91;
-  color: #1c2515;
-  min-width: 60px;
-}
-@media (max-width: 760px) {
-  .midi-map-controls .midi-map-mode {
-    display: none;
-  }
-  .midi-map-controls button {
-    padding-inline: 9px;
+    padding-inline: 10px;
   }
 }

@@ -68,7 +68,7 @@ function wav() {
   return buffer;
 }
 
-test("file note map follows MIDI channels and distinguishes fallback and unsupported notes", async ({
+test("compact file note map keeps sixteen named kit lanes and filters MIDI hits by channel", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -80,41 +80,57 @@ test("file note map follows MIDI channels and distinguishes fallback and unsuppo
     buffer: mappingMidi(),
   });
   await expect(page.locator("#channel")).toHaveValue("9");
-  await expect(page.locator("#midi-map")).toContainText("note-map.mid");
-  await expect(page.locator(".midi-map-row")).toHaveCount(3);
-  await expect(page.locator('.midi-map-row[data-note="42"]')).toHaveCount(0);
-  await expect(
-    page.locator('.midi-map-row[data-note="35"] .midi-map-destination'),
-  ).toContainText(/generated fallback/i);
-  await expect(
-    page.locator('.midi-map-row[data-note="36"] .midi-map-destination'),
-  ).toContainText(/pad 01/i);
-  await expect(page.locator('.midi-map-row[data-note="36"]')).toContainText(
-    "C2",
+  await expect(page.locator("#midi-map")).toHaveAttribute("title", "note-map.mid");
+  const rows = page.locator(".midi-map-row");
+  await expect(rows).toHaveCount(16);
+  expect(
+    await rows.evaluateAll((nodes) =>
+      nodes.map((node) => node.getAttribute("data-note")),
+    ),
+  ).toEqual(
+    [36, 38, 42, 46, 49, 51, 37, 39, 41, 43, 45, 47, 48, 50, 54, 56].map(
+      String,
+    ),
   );
-  await expect(page.locator('.midi-map-row[data-note="82"]')).toContainText(
-    /not played/i,
+  await expect(page.locator('.midi-map-row[data-note="35"]')).toHaveCount(0);
+  await expect(page.locator('.midi-map-row[data-note="82"]')).toHaveCount(0);
+  const kick = page.locator('.midi-map-row[data-note="36"]');
+  const hiHat = page.locator('.midi-map-row[data-note="42"]');
+  await expect(kick).toHaveText("Bass Drum 1");
+  await expect(kick.locator(".midi-map-note")).toHaveText("Bass Drum 1");
+  await expect(hiHat).toHaveText("Closed Hi-Hat");
+  await expect(kick.locator(".midi-map-hit")).toHaveCount(1);
+  await expect(hiHat.locator(".midi-map-hit")).toHaveCount(0);
+
+  const heights = await rows.evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect().height),
   );
-  await expect(
-    page.getByRole("button", { name: "Audition MIDI note 82", exact: true }),
-  ).toBeDisabled();
+  expect(new Set(heights).size).toBe(1);
+  expect(heights[0]).toBeGreaterThan(0);
+  expect(heights[0]).toBeLessThanOrEqual(28);
+  expect(
+    await page
+      .locator(".midi-map-grid")
+      .evaluate((grid) => grid.scrollHeight === grid.clientHeight),
+  ).toBe(true);
 
   await page.locator("#channel").selectOption("-1");
-  await expect(page.locator(".midi-map-row")).toHaveCount(4);
-  await expect(page.locator('.midi-map-row[data-note="42"]')).toContainText(
-    "Closed Hi-Hat",
-  );
+  await expect(rows).toHaveCount(16);
+  await expect(hiHat.locator(".midi-map-hit")).toHaveCount(2);
+  await expect(kick.locator(".midi-map-hit")).toHaveCount(1);
   await page.locator("#channel").selectOption("2");
-  await expect(page.locator(".midi-map-row")).toHaveCount(1);
-  await expect(page.locator('.midi-map-row[data-note="42"]')).toBeVisible();
+  await expect(rows).toHaveCount(16);
+  await expect(hiHat.locator(".midi-map-hit")).toHaveCount(2);
+  await expect(kick.locator(".midi-map-hit")).toHaveCount(0);
 
   await page.locator("#midi").setInputFiles({
     name: "empty.mid",
     mimeType: "audio/midi",
     buffer: mappingMidi(true),
   });
-  await expect(page.locator(".midi-map-row")).toHaveCount(0);
-  await expect(page.locator("#midi-map")).toContainText(/no notes/i);
+  await expect(rows).toHaveCount(16);
+  await expect(page.locator(".midi-map-hit")).toHaveCount(0);
+  await expect(kick).toHaveText("Bass Drum 1");
   expect(errors).toEqual([]);
 });
 
@@ -129,37 +145,41 @@ test("file note map updates immediately when pads are remapped, silenced, or giv
   });
   const row = page.locator('.midi-map-row[data-note="35"]');
   await page.locator(".pad select").first().selectOption("35");
-  await expect(row.locator(".midi-map-destination")).toContainText(/pad 01/i);
-  await expect(
-    page.locator('.midi-map-row[data-note="36"] .midi-map-destination'),
-  ).toContainText(/generated fallback/i);
+  await expect(page.locator(".midi-map-row")).toHaveCount(16);
+  await expect(row).toHaveText("Acoustic Bass Drum");
+  await expect(row).toHaveAttribute("title", /pad 01/i);
+  await expect(row).toHaveAttribute("data-audible", "true");
+  await expect(row.locator(".midi-map-hit")).toHaveCount(2);
+  await expect(page.locator('.midi-map-row[data-note="36"]')).toHaveCount(0);
 
   await page.locator(".pad .mute").first().click();
-  await expect(row).toContainText(/muted/i);
+  await expect(row).toHaveAttribute("title", /muted/i);
+  await expect(row).toHaveAttribute("data-audible", "false");
   await page.locator(".pad .mute").first().click();
   await page.locator(".pad .solo").nth(1).click();
-  await expect(row).toContainText(/solo/i);
+  await expect(row).toHaveAttribute("title", /solo/i);
+  await expect(row).toHaveAttribute("data-audible", "false");
   await page.locator(".pad .solo").nth(1).click();
-  await page.locator(".pad-controls input[type=range]").first().evaluate(
-    (input: HTMLInputElement) => {
+  await page
+    .locator(".pad-controls input[type=range]")
+    .first()
+    .evaluate((input: HTMLInputElement) => {
       input.value = "0";
       input.dispatchEvent(new Event("input", { bubbles: true }));
-    },
-  );
-  await expect(row).toContainText(/volume.*0|zero volume/i);
+    });
+  await expect(row).toHaveAttribute("title", /volume.*0|zero volume/i);
+  await expect(row).toHaveAttribute("data-audible", "false");
 
   await page.locator(".pad input[type=file]").first().setInputFiles({
     name: "mapped-kick.wav",
     mimeType: "audio/wav",
     buffer: wav(),
   });
-  await expect(row.locator(".midi-map-destination")).toContainText(
-    "mapped-kick.wav",
-  );
+  await expect(row).toHaveAttribute("title", /mapped-kick\.wav/);
+  await expect(row.locator(".midi-map-note")).toHaveText("Acoustic Bass Drum");
   await page.locator(".pad .reset").first().click();
-  await expect(row.locator(".midi-map-destination")).toContainText(
-    /generated starter/i,
-  );
+  await expect(row).toHaveAttribute("title", /generated starter/i);
+  await expect(row).toHaveText("Acoustic Bass Drum");
 });
 
 test("MIDI map audition, playhead, and note activity follow playback and seek controls", async ({
@@ -168,7 +188,7 @@ test("MIDI map audition, playhead, and note activity follow playback and seek co
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.locator(".midi-map-row")).toHaveCount(4);
+  await expect(page.locator(".midi-map-row")).toHaveCount(16);
   await page
     .getByRole("button", { name: "Audition MIDI note 36", exact: true })
     .click();
@@ -176,17 +196,15 @@ test("MIDI map audition, playhead, and note activity follow playback and seek co
   await page
     .getByRole("button", { name: "Play MIDI map", exact: true })
     .click();
-  await expect
-    .poll(() => page.locator("#map-seek").inputValue())
-    .not.toBe("0");
+  await expect.poll(() => page.locator("#map-seek").inputValue()).not.toBe("0");
   await expect
     .poll(() => page.locator(".midi-map-row.is-active").count())
     .toBeGreaterThan(0);
   await expect
     .poll(() =>
-      page.locator(".midi-map-playhead").evaluate((element: HTMLElement) =>
-        parseFloat(element.style.left),
-      ),
+      page
+        .locator(".midi-map-playhead")
+        .evaluate((element: HTMLElement) => parseFloat(element.style.left)),
     )
     .toBeGreaterThan(0);
   await page
@@ -202,9 +220,9 @@ test("MIDI map audition, playhead, and note activity follow playback and seek co
   await expect(page.locator("#map-seek")).toHaveValue("3.25");
   await expect
     .poll(() =>
-      page.locator(".midi-map-playhead").evaluate((element: HTMLElement) =>
-        parseFloat(element.style.left),
-      ),
+      page
+        .locator(".midi-map-playhead")
+        .evaluate((element: HTMLElement) => parseFloat(element.style.left)),
     )
     .toBeCloseTo(40.625, 1);
   await page

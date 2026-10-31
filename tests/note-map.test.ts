@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defaultKit, type Hit, type Song } from "../src/model.ts";
-import { activeMapNotes, buildNoteMap } from "../src/note-map.ts";
+import { defaultKit, SLOT_NOTES, type Hit, type Song } from "../src/model.ts";
+import {
+  activeMapNotes,
+  buildKitNoteMap,
+  buildNoteMap,
+} from "../src/note-map.ts";
 
 function song(hits: Hit[]): Song {
   return {
@@ -171,4 +175,91 @@ test("loop-tail highlights require explicit wrap and expire across the loop boun
   assert.deepEqual([...activeMapNotes(rows, -1, 2)], []);
   assert.deepEqual([...activeMapNotes(rows, 0, 0)], []);
   assert.deepEqual([...activeMapNotes(rows, NaN, 2)], []);
+});
+
+test("kit note map keeps all 16 lanes in pad order and excludes other file notes", () => {
+  const kit = defaultKit();
+  const file = song([hit(1, 36), hit(0, 35), hit(0.5, 36), hit(0, 90)]);
+  const originalFile = structuredClone(file);
+  const originalKit = structuredClone(kit);
+  const rows = buildKitNoteMap(file, kit, 9);
+  assert.equal(rows.length, 16);
+  assert.deepEqual(
+    rows.map((row) => row.note),
+    SLOT_NOTES,
+  );
+  assert.deepEqual(
+    rows.map((row) => row.slotIndex),
+    [...Array(16).keys()],
+  );
+  assert.deepEqual(
+    rows[0].hits.map((event) => event.time),
+    [0.5, 1],
+  );
+  assert.equal(rows[0].destination, "Pad 01 · Generated starter");
+  assert.equal(rows[0].name, "Bass Drum 1");
+  assert.equal(rows[0].source, "starter");
+  assert.equal(rows[0].audible, true);
+  assert(rows.slice(1).every((row) => row.hits.length === 0));
+  assert(!rows.some((row) => row.note === 35 || row.note === 90));
+  assert.deepEqual(file, originalFile);
+  assert.deepEqual(kit, originalKit);
+});
+
+test("empty files and absent channels still display every kit sound", () => {
+  const kit = defaultKit();
+  for (const file of [song([]), song([hit(0, 36, 2)])]) {
+    const rows = buildKitNoteMap(file, kit, 9);
+    assert.equal(rows.length, 16);
+    assert.deepEqual(
+      rows.map((row) => row.note),
+      SLOT_NOTES,
+    );
+    assert(rows.every((row) => row.hits.length === 0));
+    assert(rows.every((row) => row.channels.length === 0));
+    assert(rows.every((row) => row.name && row.destination && row.state));
+    assert.deepEqual([...activeMapNotes(rows, 0, 2)], []);
+  }
+});
+
+test("kit lanes remain stable when switching channels or displaying all channels", () => {
+  const file = song([hit(1, 36, 2), hit(0, 36, 9), hit(0.25, 42, 2)]);
+  const kit = defaultKit();
+  const drums = buildKitNoteMap(file, kit, 9);
+  const all = buildKitNoteMap(file, kit, -1);
+  assert.deepEqual(
+    drums.map((row) => row.note),
+    all.map((row) => row.note),
+  );
+  assert.deepEqual(drums[0].channels, [9]);
+  assert.equal(drums[2].hits.length, 0);
+  assert.deepEqual(all[0].channels, [2, 9]);
+  assert.deepEqual(
+    all[0].hits.map((event) => event.time),
+    [0, 1],
+  );
+  assert.deepEqual(all[2].channels, [2]);
+  assert.deepEqual([...activeMapNotes(all, 0.3, 2)], [42]);
+});
+
+test("kit note lanes follow remapped slot order and preserve sample and silence details", () => {
+  const kit = defaultKit();
+  kit.slots[0].note = 35;
+  kit.slots[0].audio = "data:audio/wav;base64,UklGRg==";
+  kit.slots[0].filename = "Mapped kick.wav";
+  kit.slots[0].mute = true;
+  [kit.slots[0], kit.slots[1]] = [kit.slots[1], kit.slots[0]];
+  const rows = buildKitNoteMap(song([hit(0, 35), hit(0.5, 36)]), kit, 9);
+  assert.equal(rows.length, 16);
+  assert.equal(rows[0].note, 38);
+  assert.equal(rows[0].slotIndex, 0);
+  assert.equal(rows[0].hits.length, 0);
+  assert.equal(rows[1].note, 35);
+  assert.equal(rows[1].slotIndex, 1);
+  assert.equal(rows[1].hits.length, 1);
+  assert.equal(rows[1].source, "sample");
+  assert.equal(rows[1].destination, "Pad 02 · Mapped kick.wav");
+  assert.equal(rows[1].state, "Muted");
+  assert.equal(rows[1].audible, false);
+  assert(!rows.some((row) => row.note === 36));
 });
