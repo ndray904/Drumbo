@@ -9,6 +9,7 @@ import {
   type Kit,
 } from "./model";
 import { Engine } from "./audio";
+import { MidiMap } from "./midi-map";
 import { kits, saveKit } from "./storage";
 const engine = new Engine();
 engine.song = demo();
@@ -20,6 +21,7 @@ const app = $("app");
 app.innerHTML = `<header><a class="brand" href="#">drumbo<span>●</span></a><span class="tag">THE LOCAL DRUM LAB</span><button id="activate">Activate audio</button></header>
 <main><section class="intro"><div><span class="eyebrow">MIDI IN. YOUR SOUND OUT.</span><h1>Find your<br><em>pocket.</em></h1><p>Drop a groove. Build a kit. Make it yours.<br>Everything happens right here, in your browser.</p></div><div id="drop" class="drop"><span class="drop-icon">↥</span><h2>Bring your own groove</h2><p>Drop a MIDI file here, or choose one below</p><label class="primary file">Choose MIDI<input id="midi" type="file" accept=".mid,.midi,audio/midi"></label><small>MIDI formats 0 & 1 · No uploads. Ever.</small><button id="demo" class="text">↗ Load demo groove</button></div></section>
 <section class="transport panel"><div class="song"><span class="eyebrow">NOW IN THE POCKET</span><h2 id="song"></h2><span id="info"></span></div><div class="playback"><button id="stop" aria-label="Stop">■</button><button id="play" class="play" aria-label="Play">▶</button><label class="check"><input id="loop" type="checkbox" checked> Loop</label></div><div class="timeline"><span id="time">0:00</span><input id="seek" aria-label="Seek" type="range" min="0" max="8" step=".01" value="0"><span id="duration">0:08</span></div><div class="transport-options"><label>CHANNEL <select id="channel"></select></label><label>TEMPO <input id="tempo" type="number" min="20" max="400" value="120"> BPM</label><label>MASTER <input id="master" aria-label="Master volume" type="range" min="0" max="1" step=".01" value=".7"></label></div></section>
+<section id="midi-map" class="panel midi-map" aria-labelledby="midi-map-title"></section>
 <section class="kit-header"><div><span class="eyebrow">16 PADS. ENDLESS POSSIBILITIES.</span><h2>Your drum kit <span class="pill">GM</span></h2></div><button id="check">▷ GM sound check</button></section>
 <div class="kit-tools"><label>Kit name <input id="kitname" value="Starter kit" maxlength="80"></label><button id="save">Save locally</button><select id="saved" aria-label="Saved kits"><option value="">Load saved kit…</option></select><button id="export">Export JSON ↗</button><label class="file button">Import JSON<input id="import" type="file" accept=".json,application/json"></label></div>
 <section id="pads" class="pads" aria-label="Editable sample slots"></section>
@@ -37,6 +39,20 @@ const safe = (action: () => Promise<void> | void) => {
     status(e instanceof Error ? e.message : String(e));
   }
 };
+const midiMap = new MidiMap($("midi-map"), {
+  onAudition: (note) =>
+    safe(async () => {
+      await activate();
+      engine.hit(note);
+      status(`${note} · ${gmName(note)} · current kit settings apply.`);
+    }),
+  onSeek: (time) => engine.seek(time),
+  onTogglePlayback: () => $("play").click(),
+  onStop: () => $("stop").click(),
+});
+function refreshMap() {
+  midiMap.render(engine.song, engine.kit, engine.channel);
+}
 const format = (t: number) =>
   `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 async function activate() {
@@ -63,6 +79,7 @@ function songUI() {
   $<HTMLInputElement>("tempo").value = String(Math.round(engine.song.bpm));
   $<HTMLInputElement>("seek").max = String(engine.song.duration);
   $("duration").textContent = format(engine.song.duration);
+  refreshMap();
 }
 function pads() {
   const root = $("pads");
@@ -130,7 +147,11 @@ function pads() {
     };
     const volume = card.querySelector<HTMLInputElement>("input[type=range]")!;
     volume.value = String(slot.volume);
-    volume.oninput = () => (slot.volume = Number(volume.value));
+    volume.oninput = () => {
+      const wasSilent = slot.volume === 0;
+      slot.volume = Number(volume.value);
+      if (wasSilent !== (slot.volume === 0)) refreshMap();
+    };
     card.querySelector<HTMLInputElement>("input[type=file]")!.onchange = (
       event,
     ) =>
@@ -156,6 +177,7 @@ function pads() {
     };
     root.append(card);
   });
+  refreshMap();
 }
 function dataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -195,12 +217,15 @@ $<HTMLInputElement>("loop").onchange = (e) => {
   engine.loop = (e.target as HTMLInputElement).checked;
   engine.seek(time);
 };
-$<HTMLInputElement>("seek").oninput = (e) =>
+$<HTMLInputElement>("seek").oninput = (e) => {
+  midiMap.resetActivity();
   engine.seek(Number((e.target as HTMLInputElement).value));
+};
 $<HTMLSelectElement>("channel").onchange = (e) => {
   const position = engine.now();
   engine.channel = Number((e.target as HTMLSelectElement).value);
   engine.seek(position);
+  refreshMap();
 };
 $<HTMLInputElement>("tempo").onchange = (e) => {
   const bpm = Number((e.target as HTMLInputElement).value);
@@ -345,6 +370,7 @@ function frame() {
   $("time").textContent = format(time);
   $("play").textContent = engine.playing ? "Ⅱ" : "▶";
   $("play").setAttribute("aria-label", engine.playing ? "Pause" : "Play");
+  midiMap.frame(time, engine.playing, engine.rate, engine.loop);
   requestAnimationFrame(frame);
 }
 songUI();
